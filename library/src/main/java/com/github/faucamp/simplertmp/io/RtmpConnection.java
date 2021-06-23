@@ -20,8 +20,10 @@ import com.github.faucamp.simplertmp.packets.UserControl;
 import com.github.faucamp.simplertmp.packets.Video;
 import com.github.faucamp.simplertmp.packets.WindowAckSize;
 
+
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.DataOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -30,11 +32,14 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.net.SocketException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
 
 /**
  * Main RTMP connection implementation class
@@ -56,6 +61,7 @@ public class RtmpConnection implements RtmpPublisher {
     private String tcUrl;
     private String pageUrl;
     private Socket socket;
+    private Socket rtcpSocket;
     private String srsServerInfo = "";
     private String socketExceptionCause = "";
     private RtmpSessionInfo rtmpSessionInfo;
@@ -81,12 +87,31 @@ public class RtmpConnection implements RtmpPublisher {
     private int audioDataLength;
     private long videoLastTimeMillis;
     private long audioLastTimeMillis;
+    private DataOutputStream dout;
+    private MessageDigest md;
+    private final String PUBLIC_TEST_KEY = "WjVchzr/D5NAq6YkrnmEpGkpIGD9pqmcoYliEzrRJb8=";
+    private final String PRIVATE_TEST_KEY = "8yrWHCxxOw6SNawOWCNIqNr+nwTGGOEUEbmpLyLrT/A=";
+
+    private SignEd25519 signer;
 
     public RtmpConnection(RtmpHandler handler) {
         mHandler = handler;
     }
 
     private void handshake(InputStream in, OutputStream out) throws IOException {
+        rtcpSocket = new Socket("192.168.2.4", 1936);
+        try {
+            this.md = MessageDigest.getInstance("SHA-1");
+            signer = new SignEd25519(PRIVATE_TEST_KEY);
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        }
+        dout = new DataOutputStream(rtcpSocket.getOutputStream());
+
+        String s = "{key," + PUBLIC_TEST_KEY +  "}";
+        dout.write(s.getBytes("UTF-8"));
+
+
         Handshake handshake = new Handshake();
         handshake.writeC0(out);
         handshake.writeC1(out); // Write C1 without waiting for S0
@@ -483,6 +508,7 @@ public class RtmpConnection implements RtmpPublisher {
         }
     }
 
+
     private void sendRtmpPacket(RtmpPacket rtmpPacket) {
         try {
             ChunkStreamInfo chunkStreamInfo = rtmpSessionInfo.getChunkStreamInfo(rtmpPacket.getHeader().getChunkStreamId());
@@ -490,8 +516,9 @@ public class RtmpConnection implements RtmpPublisher {
             if (!(rtmpPacket instanceof Video || rtmpPacket instanceof Audio)) {
                 rtmpPacket.getHeader().setAbsoluteTimestamp((int) chunkStreamInfo.markAbsoluteTimestampTx());
             }
-            rtmpPacket.writeTo(outputStream, rtmpSessionInfo.getTxChunkSize(), chunkStreamInfo);
-            //Log.d(TAG, "wrote packet: " + rtmpPacket + ", size: " + rtmpPacket.getHeader().getPacketLength());
+            rtmpPacket.writeTo(outputStream, rtmpSessionInfo.getTxChunkSize(), chunkStreamInfo, md, dout, signer);
+
+
             if (rtmpPacket instanceof Command) {
                 rtmpSessionInfo.addInvokedCommand(((Command) rtmpPacket).getTransactionId(), ((Command) rtmpPacket).getCommandName());
             }

@@ -9,9 +9,9 @@ import android.hardware.Camera;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
-import android.support.v4.app.ActivityCompat;
-import android.support.v4.content.ContextCompat;
-import android.support.v7.app.AppCompatActivity;
+//import android.support.v4.app.ActivityCompat;
+//import android.support.v4.content.ContextCompat;
+//import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -20,6 +20,10 @@ import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
+
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
 import com.github.faucamp.simplertmp.RtmpHandler;
 import com.seu.magicfilter.utils.MagicFilterType;
@@ -46,7 +50,7 @@ public class MainActivity extends AppCompatActivity implements RtmpHandler.RtmpL
     private Button btnPause;
 
     private SharedPreferences sp;
-    private String rtmpUrl = "rtmp://ossrs.net/" + getRandomAlphaString(3) + '/' + getRandomAlphaDigitString(5);
+    private String rtmpUrl =  "rtmp://192.168.2.4:1935/test/1";
     private String recPath = Environment.getExternalStorageDirectory().getPath() + "/test.mp4";
 
     private SrsPublisher mPublisher;
@@ -130,9 +134,7 @@ public class MainActivity extends AppCompatActivity implements RtmpHandler.RtmpL
         mCameraView.setCameraCallbacksHandler(new SrsCameraView.CameraCallbacksHandler(){
             @Override
             public void onCameraParameters(Camera.Parameters params) {
-                //params.setFocusMode("custom-focus");
-                //params.setWhiteBalance("custom-balance");
-                //etc...
+
             }
         });
 
