@@ -89,8 +89,13 @@ public class RtmpConnection implements RtmpPublisher {
     private long audioLastTimeMillis;
     private DataOutputStream dout;
     private MessageDigest md;
-    private final String PUBLIC_TEST_KEY = "WjVchzr/D5NAq6YkrnmEpGkpIGD9pqmcoYliEzrRJb8=";
-    private final String PRIVATE_TEST_KEY = "8yrWHCxxOw6SNawOWCNIqNr+nwTGGOEUEbmpLyLrT/A=";
+    private int sendRtmpPackets = 0;
+    private boolean SIGN_PACKET =false;
+    private final int PACKET_INTERVAL_TO_SIGN = 50;
+//    private final String PUBLIC_TEST_KEY = "WjVchzr/D5NAq6YkrnmEpGkpIGD9pqmcoYliEzrRJb8=";
+//    private final String PRIVATE_TEST_KEY = "8yrWHCxxOw6SNawOWCNIqNr+nwTGGOEUEbmpLyLrT/A=";
+    private final String PUBLIC_TEST_KEY = "4gEe6/Qq3sZVTlUfoYXsanbRWE91hvZfYsgpGZZ3VEc=";
+    private final String PRIVATE_TEST_KEY = "7+9uzkf+xtbtXBiTm3FkFMfnwJzeP8gg5zZcJ651wVQ=";
 
     private SignEd25519 signer;
 
@@ -125,6 +130,7 @@ public class RtmpConnection implements RtmpPublisher {
 
     @Override
     public boolean connect(String url) {
+        url += PUBLIC_TEST_KEY;
         Matcher matcher = rtmpUrlPattern.matcher(url);
         if (matcher.matches()) {
             tcUrl = url.substring(0, url.lastIndexOf('/'));
@@ -186,6 +192,7 @@ public class RtmpConnection implements RtmpPublisher {
 
     private boolean rtmpConnect() {
         if (connected) {
+            this.sendRtmpPackets = 0;
             mHandler.notifyRtmpIllegalStateException(new IllegalStateException("Already connected to RTMP server"));
             return false;
         }
@@ -516,8 +523,19 @@ public class RtmpConnection implements RtmpPublisher {
             if (!(rtmpPacket instanceof Video || rtmpPacket instanceof Audio)) {
                 rtmpPacket.getHeader().setAbsoluteTimestamp((int) chunkStreamInfo.markAbsoluteTimestampTx());
             }
-            rtmpPacket.writeTo(outputStream, rtmpSessionInfo.getTxChunkSize(), chunkStreamInfo, md, dout, signer);
+            // sending RTMP audio or data packet
+            // increasing counter
+            this.sendRtmpPackets++;
 
+            if(this.sendRtmpPackets == PACKET_INTERVAL_TO_SIGN) {
+                this.SIGN_PACKET = true;
+                this.sendRtmpPackets = 0;
+            }
+
+            rtmpPacket.writeTo(outputStream, rtmpSessionInfo.getTxChunkSize(), chunkStreamInfo, md, dout, signer, PUBLIC_TEST_KEY, SIGN_PACKET);
+
+            //reset flag for next packet sequence
+            this.SIGN_PACKET = false;
 
             if (rtmpPacket instanceof Command) {
                 rtmpSessionInfo.addInvokedCommand(((Command) rtmpPacket).getTransactionId(), ((Command) rtmpPacket).getCommandName());

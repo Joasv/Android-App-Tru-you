@@ -50,7 +50,7 @@ public class MainActivity extends AppCompatActivity implements RtmpHandler.RtmpL
     private Button btnPause;
 
     private SharedPreferences sp;
-    private String rtmpUrl =  "rtmp://192.168.2.4:1935/test/1";
+    private String rtmpUrl =  "rtmp://192.168.2.4:1935/live/";
     private String recPath = Environment.getExternalStorageDirectory().getPath() + "/test.mp4";
 
     private SrsPublisher mPublisher;
@@ -108,7 +108,7 @@ public class MainActivity extends AppCompatActivity implements RtmpHandler.RtmpL
     private void init() {
         // restore data.
         sp = getSharedPreferences("Yasea", MODE_PRIVATE);
-        rtmpUrl = sp.getString("rtmpUrl", rtmpUrl);
+       // rtmpUrl = sp.getString("rtmpUrl", rtmpUrl);
 
         // initialize url.
         final EditText efu = (EditText) findViewById(R.id.url);

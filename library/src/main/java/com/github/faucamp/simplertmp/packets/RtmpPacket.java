@@ -47,32 +47,34 @@ public abstract class RtmpPacket {
         return this instanceof ContentData ? array() : baos.toByteArray();
     }
 
-    public void writeTo(OutputStream out, final int chunkSize, final ChunkStreamInfo chunkStreamInfo, MessageDigest md, OutputStream dout, SignEd25519 signer) throws IOException {
+    public void writeTo(OutputStream out, final int chunkSize, final ChunkStreamInfo chunkStreamInfo, MessageDigest md, OutputStream dout, SignEd25519 signer, String PUBLIC_KEY, boolean sign) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         writeBody(baos);
         byte[] body = this instanceof ContentData ? array() : baos.toByteArray();
 
+        if (sign) {
 
-        String hexbody = null;
+            String hexbody = null;
 
-        String hexStringBody = Hex.encodeHex(this.getPacketData());
-        String[] bodySplitted = {};
-        bodySplitted = hexStringBody.split("0000000000000000000000000000000000");
-        hexbody = bodySplitted[0];
+            String hexStringBody = Hex.encodeHex(this.getPacketData());
+            String[] bodySplitted = {};
+            bodySplitted = hexStringBody.split("0000000000000000000000000000000000");
+            hexbody = bodySplitted[0];
 
-        String hashString = String.format("%040x", new BigInteger(1,  md.digest(hexbody.getBytes("UTF-8"))));
+            String hashString = String.format("%040x", new BigInteger(1,  md.digest(hexbody.getBytes("UTF-8"))));
 
-        String s = null;
-        try {
-            s = "{"+ this.getHeader().getAbsoluteTimestamp() +"," + signer.signToBase64(hashString.getBytes("UTF-8")) + "}";
-        } catch (SignatureException e) {
-            e.printStackTrace();
+            String s = null;
+            try {
+                s = "{" + PUBLIC_KEY + "," + this.getHeader().getAbsoluteTimestamp() +"," + signer.signToBase64(hashString.getBytes("UTF-8")) + "}";
+                byte [] fullToSend = s.getBytes();
+                //RTCP send / write
+                dout.write(fullToSend);
+                md.reset();
+            } catch (SignatureException e) {
+                e.printStackTrace();
+            }
         }
 
-        byte [] fullToSend = s.getBytes();
-        //RTCP send / write
-        dout.write(fullToSend);
-        md.reset();
 
 
         int length = this instanceof ContentData ? size() : body.length;
@@ -88,14 +90,6 @@ public abstract class RtmpPacket {
             // Write header for remain chunk
             header.writeTo(out, RtmpHeader.ChunkType.TYPE_3_RELATIVE_SINGLE_BYTE, chunkStreamInfo);
         }
-
-
-
-
-
-
         out.write(body, pos, length);
-
-
     }
 }
